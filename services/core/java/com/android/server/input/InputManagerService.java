@@ -282,6 +282,9 @@ public class InputManagerService extends IInputManager.Stub
     /** Switch code: Headphone/Microphone Jack.  When set, something is inserted. */
     public static final int SW_JACK_PHYSICAL_INSERT = 0x07;
 
+    /** Switch code: HDMI/DP Jack.  When set, Video is inserted. */
+    public static final int SW_VIDEOOUT_INSERT = 0x08;
+
     /** Switch code: Camera lens cover. When set the lens is covered. */
     public static final int SW_CAMERA_LENS_COVER = 0x09;
 
@@ -292,12 +295,15 @@ public class InputManagerService extends IInputManager.Stub
     public static final int SW_MICROPHONE_INSERT_BIT = 1 << SW_MICROPHONE_INSERT;
     public static final int SW_LINEOUT_INSERT_BIT = 1 << SW_LINEOUT_INSERT;
     public static final int SW_JACK_PHYSICAL_INSERT_BIT = 1 << SW_JACK_PHYSICAL_INSERT;
+    public static final int SW_VIDEOOUT_INSERT_BIT = 1 << SW_VIDEOOUT_INSERT;
     public static final int SW_JACK_BITS =
             SW_HEADPHONE_INSERT_BIT | SW_MICROPHONE_INSERT_BIT | SW_JACK_PHYSICAL_INSERT_BIT | SW_LINEOUT_INSERT_BIT;
+    public static final int SW_JACK_HDMI_BITS = SW_LINEOUT_INSERT_BIT | SW_VIDEOOUT_INSERT_BIT;
     public static final int SW_CAMERA_LENS_COVER_BIT = 1 << SW_CAMERA_LENS_COVER;
 
     /** Whether to use the dev/input/event or uevent subsystem for the audio jack. */
     final boolean mUseDevInputEventForAudioJack;
+    final boolean mUseDevInputEventForHdmiAudioJack;
 
     public InputManagerService(Context context) {
         this.mContext = context;
@@ -307,6 +313,10 @@ public class InputManagerService extends IInputManager.Stub
                 context.getResources().getBoolean(R.bool.config_useDevInputEventForAudioJack);
         Slog.i(TAG, "Initializing input manager, mUseDevInputEventForAudioJack="
                 + mUseDevInputEventForAudioJack);
+        mUseDevInputEventForHdmiAudioJack =
+                context.getResources().getBoolean(R.bool.config_useDevInputEventForHdmiAudioJack);
+        Slog.i(TAG, "Initializing input manager, mUseDevInputEventForHdmiAudioJack="
+                + mUseDevInputEventForHdmiAudioJack);
         mPtr = nativeInit(this, mContext, mHandler.getLooper().getQueue());
 
         String doubleTouchGestureEnablePath = context.getResources().getString(
@@ -1824,7 +1834,13 @@ public class InputManagerService extends IInputManager.Stub
             mWindowManagerCallbacks.notifyCameraLensCoverSwitchChanged(whenNanos, lensCovered);
         }
 
-        if (mUseDevInputEventForAudioJack && (switchMask & SW_JACK_BITS) != 0) {
+	int mask = 0;
+	if (mUseDevInputEventForAudioJack)
+	    mask |= SW_JACK_BITS;
+	if (mUseDevInputEventForHdmiAudioJack)
+	    mask |= SW_JACK_HDMI_BITS;
+
+	if ((switchMask & mask) != 0) {
             mWiredAccessoryCallbacks.notifyWiredAccessoryChanged(whenNanos, switchValues,
                     switchMask);
         }
